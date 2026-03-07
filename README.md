@@ -107,4 +107,4 @@ Ali Almahdi - [ali.ac](https://ali.ac) - [@alialmahdi](https://x.com/alialmahdi)
 
 ## Repository
 
-[github.com/almahdi/webfetch](https://github.com/almahdi/webfetch)
+[github.com/almahdi/pi-webfetch](https://github.com/almahdi/pi-webfetch)

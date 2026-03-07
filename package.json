@@ -2,8 +2,18 @@
   "name": "pi-webfetch",
   "version": "1.0.0",
   "description": "Pi extension for fetching and converting web content to various formats",
-  "private": true,
+  "keywords": ["pi-package"],
+  "author": "Ali Almahdi",
+  "homepage": "https://github.com/almahdi/pi-webfetch#readme",
+  "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/almahdi/pi-webfetch.git"
+  },
+  "bugs": {
+    "url": "https://github.com/almahdi/pi-webfetch/issues"
+  },
   "pi": {
     "extensions": ["./index.ts"]
   },
@@ -13,5 +23,10 @@
   },
   "devDependencies": {
     "@types/turndown": "^5.0.0"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-ai": "*",
+    "@sinclair/typebox": "*"
   }
 }

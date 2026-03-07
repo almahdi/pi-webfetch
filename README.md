@@ -24,21 +24,22 @@ A [Pi](https://github.com/mariozechner/pi-coding-agent) extension for fetching a
 
 ## Installation
 
+Install as a Pi package:
+
 ```bash
-# Install dependencies
-npm install
+# Install from GitHub
+pi install git:github.com/almahdi/pi-webfetch
+
+# Or install from HTTPS
+pi install https://github.com/almahdi/pi-webfetch
+
+# Or install project-local (in .pi/git/)
+pi install git:github.com/almahdi/pi-webfetch -l
 ```
 
 ## Usage
 
-This extension is designed to be used with the Pi coding agent. Add it to your project's `package.json`:
-
-```json
-{
-  "pi": {
-    "extensions": ["./index.ts"]
-  }
-}
+Once installed, the `webfetch` tool is automatically available in pi.
 ```
 
 ### Tool Parameters

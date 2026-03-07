@@ -1,0 +1,17 @@
+{
+  "name": "pi-webfetch",
+  "version": "1.0.0",
+  "description": "Pi extension for fetching and converting web content to various formats",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "turndown": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/turndown": "^5.0.0"
+  }
+}

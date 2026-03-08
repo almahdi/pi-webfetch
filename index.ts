@@ -1,6 +1,12 @@
 /**
  * Pi webfetch extension
  * Fetches web content and converts to various formats (markdown, text, html, json)
+ *
+ * @version 1.0.0
+ * @author Ali Almahdi
+ * @copyright Copyright (c) 2026 Ali Almahdi
+ * @license MIT
+ * @see https://github.com/almahdi/pi-webfetch
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";

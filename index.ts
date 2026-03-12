@@ -1,8 +1,9 @@
 /**
  * Pi webfetch extension
  * Fetches web content and converts to various formats (markdown, text, html, json)
+ * Supports Cloudflare bypass and image fetching
  *
- * @version 1.0.0
+ * @version 1.1.0
  * @author Ali Almahdi
  * @copyright Copyright (c) 2026 Ali Almahdi
  * @license MIT
@@ -26,7 +27,10 @@ import { join } from "node:path";
 import { Agent } from "undici";
 
 const USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 pi-webfetch/1.0.0";
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 pi-webfetch/1.1.0";
+
+// Simplified User-Agent for Cloudflare bypass
+const CLOUDFLARE_BYPASS_UA = "webfetch/1.1.0";
 
 const DEFAULT_TIMEOUT = 30000;
 
@@ -45,12 +49,16 @@ export default function (pi: ExtensionAPI) {
       "Fetch content from a URL and convert to various formats. " +
       "Supports markdown (default), text, html, and json output. " +
       "Can extract specific content using CSS selectors. " +
+      "Automatically bypasses Cloudflare protection. " +
+      "Can fetch images and return as base64-encoded data. " +
       "Output is truncated to 50KB/2000 lines, with full content saved to a temp file if needed.",
-    promptSnippet: "Fetch and extract content from web pages",
+    promptSnippet: "Fetch and extract content from web pages, including images",
     promptGuidelines: [
       "Use this tool when you need to fetch content from a URL.",
       "Prefer markdown format for readable content, json for API responses.",
       "Use CSS selectors to extract specific parts of a page when needed.",
+      "Tool automatically handles Cloudflare-protected sites.",
+      "Images are returned as base64-encoded data URLs.",
     ],
     parameters: Type.Object({
       url: Type.String({
@@ -110,12 +118,12 @@ export default function (pi: ExtensionAPI) {
       };
       signal?.addEventListener("abort", onAbort);
 
-      let response: Response;
-      try {
-        response = await fetch(url, {
+      // Helper function to fetch with specific User-Agent
+      const doFetch = async (userAgent: string) => {
+        return await fetch(url, {
           method: "GET",
           headers: {
-            "User-Agent": USER_AGENT,
+            "User-Agent": userAgent,
             Accept:
               "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.5",
@@ -124,6 +132,32 @@ export default function (pi: ExtensionAPI) {
           redirect: "follow",
           dispatcher: sslAgent,
         });
+      };
+
+      let response: Response;
+      let cloudflareBypassed = false;
+
+      try {
+        // First attempt with normal User-Agent
+        response = await doFetch(USER_AGENT);
+
+        // Check for Cloudflare challenge and retry with simplified UA
+        if (
+          response.status === 403 &&
+          (response.headers.get("cf-mitigated") === "challenge" ||
+            response.headers.get("server")?.toLowerCase().includes("cloudflare"))
+        ) {
+          onUpdate?.({
+            content: [{ type: "text", text: "Cloudflare detected, retrying with bypass..." }],
+          });
+          cloudflareBypassed = true;
+
+          // Close the first response body to free resources
+          await response.body?.cancel();
+
+          // Retry with simplified User-Agent
+          response = await doFetch(CLOUDFLARE_BYPASS_UA);
+        }
       } catch (err) {
         clearTimeout(timeoutId);
         signal?.removeEventListener("abort", onAbort);
@@ -143,13 +177,55 @@ export default function (pi: ExtensionAPI) {
       }
 
       const contentType = response.headers.get("content-type") || "";
-      const rawContent = await response.text();
+      const contentLength = response.headers.get("content-length");
+
+      // Check content length before reading
+      if (contentLength && parseInt(contentLength) > DEFAULT_MAX_BYTES * 100) {
+        // Warn if very large (5MB+)
+        onUpdate?.({
+          content: [{ type: "text", text: `Large response detected (${formatSize(parseInt(contentLength))})` }],
+        });
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const rawContent = new TextDecoder().decode(arrayBuffer);
+
+      // Detect if response is an image
+      const mime = contentType.split(";")[0]?.trim().toLowerCase() || "";
+      const isImage = mime.startsWith("image/") && mime !== "image/svg+xml" && mime !== "image/vnd.fastbidsheet";
 
       onUpdate?.({
         content: [{ type: "text", text: `Processing ${format} format...` }],
       });
 
-      // Process content based on format
+      // Handle image responses
+      if (isImage) {
+        const base64 = Buffer.from(arrayBuffer).toString("base64");
+        const dataUrl = `data:${mime};base64,${base64}`;
+
+        const details: WebfetchDetails = {
+          url,
+          status: response.status,
+          statusText: response.statusText,
+          contentType: mime,
+          totalBytes: arrayBuffer.byteLength,
+          totalLines: 1,
+          truncated: false,
+          format: "image",
+          selector,
+          isImage: true,
+          imageData: dataUrl,
+          imageSize: arrayBuffer.byteLength,
+          cloudflareBypassed,
+        };
+
+        return {
+          content: [{ type: "text", text: `Image fetched successfully: ${url} (${formatSize(arrayBuffer.byteLength)})` }],
+          details,
+        };
+      }
+
+      // Process non-image content based on format
       let content: string;
       let finalContentType = contentType;
 
@@ -226,6 +302,7 @@ export default function (pi: ExtensionAPI) {
         truncated: truncation.truncated,
         format,
         selector,
+        cloudflareBypassed,
       };
 
       if (truncation.truncated) {
@@ -273,4 +350,8 @@ interface WebfetchDetails {
   truncated: boolean;
   format: string;
   selector?: string;
+  isImage?: boolean;
+  imageData?: string;
+  imageSize?: number;
+  cloudflareBypassed?: boolean;
 }
